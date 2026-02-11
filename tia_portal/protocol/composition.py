@@ -1,6 +1,6 @@
 """ Composition protocol. This is a protocol for a composition of objects."""
 from __future__ import annotations
-from typing import Any, Optional, Protocol, Self, TypeVar, Iterator
+from typing import Any, Optional, Protocol, TypeVar, Iterator
 
 from tia_portal.protocol.objects import TiaObject
 
@@ -23,5 +23,6 @@ class Composition(TiaObject, Protocol[T]):
 class CompositionItem(TiaObject, Protocol):
     """Composition item protocol. This is a protocol for an item in a composition of objects."""
 
-    def __init__(self, parent: Composition[Self], name: str):  # type: ignore
+    def __init__(self, parent: Composition, name: str):  # type: ignore
         ...
+
