@@ -1,0 +1,22 @@
+[project]
+name = "tia-openness-api-client"
+version = "0.1.1"
+requires-python = ">=3.9"
+dependencies = ["pythonnet"]
+authors = [
+    { name = "Jasper Delahaije", email = "jdelahaije@gmail.com" }
+]
+description='A Python library used to create a client for accessing the TIA Openness API'
+readme = "README.md"
+license-files = ["LICENSE"]
+
+[project.urls]
+Source = "https://github.com/Repsay/tia-openness-api-client"
+Repository = "https://https://github.com/dev-adi-github-nuitka/tia-openness-api-client"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["tia_portal"]
