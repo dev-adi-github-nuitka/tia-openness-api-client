@@ -14,6 +14,7 @@ import winreg
 from collections.abc import Iterator
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Optional
 
 from tia_portal.version import TiaVersion
 
@@ -55,7 +56,7 @@ def load(*, default: TiaVersion = TiaVersion.V18) -> None:
     add_to_whitelist(_EXE_PATH, VERSION)
 
 
-def detect_tia_portal_version() -> TiaVersion | None:
+def detect_tia_portal_version() -> Optional[TiaVersion]:
     """Return the highest supported TIA Portal version installed on this machine, or None if not found."""
     candidates = []
 
@@ -85,13 +86,11 @@ def add_to_whitelist(exe_path: str, tia_version: TiaVersion) -> None:
     reg_path = rf"SOFTWARE\Siemens\Automation\Openness\{tia_version.value}.0\Whitelist\{path.name}\Entry"
 
     try:
-        with (
-            winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE) as hklm,
-            winreg.CreateKeyEx(hklm, reg_path, 0, winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY) as entry,
-        ):
-            winreg.SetValueEx(entry, "Path", 0, winreg.REG_SZ, str(exe_path))
-            winreg.SetValueEx(entry, "DateModified", 0, winreg.REG_SZ, date_modified)
-            winreg.SetValueEx(entry, "FileHash", 0, winreg.REG_SZ, file_hash)
+        with winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE) as hklm:
+            with winreg.CreateKeyEx(hklm, reg_path, 0, winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY) as entry:
+                winreg.SetValueEx(entry, "Path", 0, winreg.REG_SZ, str(exe_path))
+                winreg.SetValueEx(entry, "DateModified", 0, winreg.REG_SZ, date_modified)
+                winreg.SetValueEx(entry, "FileHash", 0, winreg.REG_SZ, file_hash)
     except PermissionError as e:
         raise Exception(
             "Administrator permissions are required to modify the Siemens Openness whitelist in the Windows registry. "
@@ -128,7 +127,7 @@ def _iter_subkeys(root: winreg.HKEYType) -> Iterator[str]:
             break
 
 
-def _read_display_entry(root: winreg.HKEYType, child: str) -> tuple[str, str] | None:
+def _read_display_entry(root: winreg.HKEYType, child: str) -> Optional[tuple[str, str]]:
     """Return (DisplayName, DisplayVersion) for *child*, or None if unavailable."""
     try:
         with winreg.OpenKey(root, child) as app_key:
