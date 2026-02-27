@@ -38,7 +38,7 @@ _UNINSTALL_KEYS = [
 #       AdiDriverInstallations\<driver name>\Scripts\python.exe
 #
 # The current value is a development-only default for local testing.
-_EXE_PATH = r"C:\Users\Administrator\AppData\Roaming\uv\python\cpython-3.11.14-windows-x86_64-none\python.exe"
+_EXE_PATH = r"C:\Users\Administrator\AppData\Roaming\uv\python\cpython-3.9.25-windows-x86_64-none\python.exe"
 
 
 # ---------------------------------------------------------------------------
