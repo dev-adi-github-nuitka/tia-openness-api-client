@@ -1,19 +1,14 @@
 """
-Siemens TIA Portal Openness API whitelisting utilities.
+Siemens TIA Portal Openness API configuration utilities.
 
-Detects installed TIA Portal versions from the Windows registry and
-registers executables in the Siemens Openness whitelist so that
-TIA Portal permits programmatic access from those binaries.
+Detects installed TIA Portal versions from the Windows registry
+so the driver can load the correct Openness API assemblies.
 """
 
 from __future__ import annotations
 
-import base64
-import hashlib
 import winreg
 from collections.abc import Iterator
-from datetime import datetime, timezone
-from pathlib import Path
 from typing import Optional
 
 from tia_portal.version import TiaVersion
@@ -30,16 +25,6 @@ _UNINSTALL_KEYS = [
     r"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall",
 ]
 
-# Path to the Python executable that TIA Portal's Openness firewall must trust.
-# This must match the exact binary the Agent uses to run this driver.
-#
-# TODO: Replace with the production path used on the Agent machine, e.g.:
-#   C:\ProgramData\Verve Industrial Protection\Agent\AdiDrivers\
-#       AdiDriverInstallations\<driver name>\Scripts\python.exe
-#
-# The current value is a development-only default for local testing.
-_EXE_PATH = r"C:\Users\Administrator\AppData\Roaming\uv\python\cpython-3.9.25-windows-x86_64-none\python.exe"
-
 
 # ---------------------------------------------------------------------------
 # Public API
@@ -47,13 +32,11 @@ _EXE_PATH = r"C:\Users\Administrator\AppData\Roaming\uv\python\cpython-3.9.25-wi
 
 
 def load(*, default: TiaVersion = TiaVersion.V18) -> None:
-    """Set up the module by detecting the TIA Portal version and adding the Python executable to the whitelist."""
+    """Detect the installed TIA Portal version and set the module-level VERSION."""
     global VERSION
 
     detected = detect_tia_portal_version()
     VERSION = detected or default
-
-    add_to_whitelist(_EXE_PATH, VERSION)
 
 
 def detect_tia_portal_version() -> Optional[TiaVersion]:
@@ -65,37 +48,6 @@ def detect_tia_portal_version() -> Optional[TiaVersion]:
             candidates.append(version)
 
     return TiaVersion[max(candidates)] if candidates else None
-
-
-def add_to_whitelist(exe_path: str, tia_version: TiaVersion) -> None:
-    """
-    Register *exe_path* in the Siemens Openness whitelist for the given TIA version.
-
-    Values written:
-        - Path         (REG_SZ)
-        - DateModified (REG_SZ) -> UTC, "yyyy/MM/dd HH:mm:ss.fff"
-        - FileHash     (REG_SZ) -> Base64-encoded SHA-256 of the EXE bytes
-    """
-    path = Path(exe_path)
-    if not path.is_file():
-        raise Exception(f"Executable not found: {exe_path}. Cannot add to Siemens Openness whitelist.")
-
-    file_hash, date_modified = _compute_hash_and_date(path)
-
-    # TIA expects a decimal in the version folder (e.g., V18.0, V21.0)
-    reg_path = rf"SOFTWARE\Siemens\Automation\Openness\{tia_version.value}.0\Whitelist\{path.name}\Entry"
-
-    try:
-        with winreg.ConnectRegistry(None, winreg.HKEY_LOCAL_MACHINE) as hklm:
-            with winreg.CreateKeyEx(hklm, reg_path, 0, winreg.KEY_WRITE | winreg.KEY_WOW64_64KEY) as entry:
-                winreg.SetValueEx(entry, "Path", 0, winreg.REG_SZ, str(exe_path))
-                winreg.SetValueEx(entry, "DateModified", 0, winreg.REG_SZ, date_modified)
-                winreg.SetValueEx(entry, "FileHash", 0, winreg.REG_SZ, file_hash)
-    except PermissionError as e:
-        raise Exception(
-            "Administrator permissions are required to modify the Siemens Openness whitelist in the Windows registry. "
-            "Re-run in an elevated (Administrator) terminal."
-        ) from e
 
 
 # ---------------------------------------------------------------------------
@@ -138,14 +90,3 @@ def _read_display_entry(root: winreg.HKEYType, child: str) -> Optional[tuple[str
     except OSError:
         pass
     return None
-
-
-def _compute_hash_and_date(path: Path) -> tuple[str, str]:
-    """Return (base64_sha256, utc_mtime_formatted) for *path*."""
-    digest = hashlib.sha256(path.read_bytes()).digest()
-    file_hash = base64.b64encode(digest).decode("ascii")
-
-    ts = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
-    date_mod = ts.strftime("%Y/%m/%d %H:%M:%S.") + f"{ts.microsecond // 1000:03d}"
-
-    return file_hash, date_mod
